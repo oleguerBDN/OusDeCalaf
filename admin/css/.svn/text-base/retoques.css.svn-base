@@ -1,0 +1,90 @@
+.span12 .alert{ 
+    height: 18px;
+    margin-left: auto;
+    margin-right: auto;
+    margin-top: 20px;
+    width: 450px;
+}
+.span12 .alert strong{
+    float:left;
+    font-weight: bold;
+    padding-right: 5px;
+}
+.span12 .alert p{
+    float:left;
+}
+
+.submenu .active a{
+    font-weight: bold;
+}
+
+input[disabled], select[disabled], textarea[disabled], input[readonly], select[readonly], textarea[readonly] {
+    cursor: not-allowed;
+    background-color: #fcfcfc;
+}
+
+html.js body div.container-fluid div.row-fluid div#content.span11 form#theform.form-horizontal div.buttons{
+    margin-top: 20px;
+    float: right;
+}
+
+.inner-form-actions{
+    padding-left: 180px;
+    background-color: #F5F5F5;
+    border-top: 1px solid #E5E5E5;
+    margin: 20px -10px -10px;
+    margin-top: 20px;
+    padding: 19px 20px 20px;
+}
+
+.inner{
+    margin-top: 30px;
+    margin-left: -120px;
+}
+
+.breadcrumb{
+    margin-left: -15px;
+}
+
+div.checker {
+    float: left;
+}
+
+div.checker span{
+margin-top: 4px;
+}
+ul.shopsections{
+    list-style: none;
+}
+ul.shopsections li{
+    display: block;
+    margin-bottom: 10px;
+    width: 100%;
+    padding-bottom: 10px;
+}
+ul.subsections{
+    float: left;
+    list-style: none outside none;
+    margin-bottom: 20px;
+    margin-top: 10px;
+    width: 100%;
+}
+ul.subsections li{
+    margin-bottom: 0px;
+}
+
+ul.subsections li{
+    float: left;
+    line-height: 20px;
+    width: 50%;
+}
+
+html.js body div.container-fluid div.row-fluid div#content.span11 div.row-fluid div.span9 div.row-fluid form#theform.form-horizontal div.row-fluid div.box div.box-content fieldset ul.shopsections li.no-clildren{
+    width:100%;   
+}
+html.js body div.container-fluid div.row-fluid div#content.span11 div.row-fluid div.span9 div.row-fluid form#theform.form-horizontal div.row-fluid div.box div.box-content ul.shopsections li ul.subsections li div.checker span{
+     margin-top: 4px;
+    
+    
+}
+    

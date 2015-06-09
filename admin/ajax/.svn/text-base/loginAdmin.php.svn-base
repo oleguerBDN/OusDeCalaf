@@ -1,0 +1,6 @@
+<?php
+require_once '../../includes/general_settings.php';
+
+$admin_users = new Admin_users();
+
+echo $admin_users->adminLogin($_GET['username'], $_GET['password']);

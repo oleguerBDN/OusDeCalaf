@@ -1,0 +1,7 @@
+<?php
+include '../../includes/general_settings.php';
+$class = new $_POST['table']();
+$class->deleteItem($_POST['id']);
+
+
+?>

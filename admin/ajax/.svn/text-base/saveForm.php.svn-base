@@ -1,0 +1,29 @@
+<?php
+
+require_once '../../includes/general_settings.php';
+
+$table = $_POST['t'];
+$class = new $table($_POST['itemid']);
+
+$ok = $class->saveItem($_POST, $_FILES);
+if ($ok > 0) {
+    foreach ((array) $_POST as $key => $values) {
+        if ((in_array($key, $class->externalForm))) {
+
+            $newtable = ucfirst($key);
+            $newclass = new $newtable();
+            $fatherFk = array_search($table, $newclass->references);
+            if ($key != 'item_packs') {
+                $newclass->saveItem($values, $fatherFk, $ok, $_FILES);
+            }
+        } elseif ((array_key_exists($key, $class->picklists))) {
+            if ($values['group'] == -1) {
+                $values['group'] = $ok;
+            }
+            $relClass = new $key();
+            $relClass->saveItem($values['group'], $values['items']);
+        }
+    }
+}
+echo $ok;
+?>

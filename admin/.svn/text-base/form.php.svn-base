@@ -1,0 +1,734 @@
+<?php
+include '../includes/general_settings.php';
+include 'functions_display.php';
+if ($_SESSION['admin']['user']['id'] < 1) {
+    header('Location: ' . BASE_URL . 'admin/');
+}
+if (in_array($_GET['t'], (array) $GLOBALS['hide'])) {
+    header('Location: ' . BASE_URL . 'admin/list.php?s=items&t=item_orders');
+}
+$footerIncludes = array();
+$db = new Database();
+$tables = $db->showTables();
+$hide = $GLOBALS['hide'];
+foreach ((array) $tables as $tables_key => $tables_value) {
+    $pos = strpos($tables_value['Tables_in_' . DBSCHEMA], 'item_');
+    if ($pos === false) {
+        $pos = strpos($tables_value['Tables_in_' . DBSCHEMA], 'section_');
+        if ($pos === false) {
+            $pos = strpos($tables_value['Tables_in_' . DBSCHEMA], 'newsletter_');
+            if ($pos === false) {
+                $pos = strpos($tables_value['Tables_in_' . DBSCHEMA], 'footer_');
+                if ($pos === false) {
+                    if (!in_array($tables_value['Tables_in_' . DBSCHEMA], $hide)) {
+                        $submenu['config'][] = $tables_value['Tables_in_' . DBSCHEMA];
+                    }
+                } else {
+                    $submenu['footer'][] = $tables_value['Tables_in_' . DBSCHEMA];
+                }
+            } else {
+                $submenu['newsletter'][] = $tables_value['Tables_in_' . DBSCHEMA];
+            }
+        } else {
+            if (!in_array($tables_value['Tables_in_' . DBSCHEMA], $hide)) {
+                $submenu['sections'][] = $tables_value['Tables_in_' . DBSCHEMA];
+            }
+        }
+    } else {
+        if (!in_array($tables_value['Tables_in_' . DBSCHEMA], $hide)) {
+            $submenu['items'][] = $tables_value['Tables_in_' . DBSCHEMA];
+        }
+    }
+}
+
+$theclass = ucfirst($_GET['t']);
+
+$theclass = new $theclass($_GET['id']);
+if ($_GET['load'] && $_GET['id'] < 0) {
+    $theclass = new $theclass($_GET['load']);
+    $theclass->itemId = -1;
+    $theclass->itemTypeFk = ITEM_TYPE_ASOCIADO;
+    $theclass->itemNameFk = '';
+    $theclass->itemUrlFk = '';
+    $theclass->itemCdate = '';
+    $theclass->itemStock = '';
+    $theclass->itemImg = '';
+    $theclass->itemSold = '';
+    $theclass->itemItemFk = $_GET['load'];
+} elseif ($theclass->itemTypeFk == ITEM_TYPE_ASOCIADO && $_GET['id'] > 0) {
+    $_GET['load'] = $theclass->itemItemFk;
+} elseif ($theclass->itemTypeFk == ITEM_TYPE_COMPLEJO && $_GET['id'] > 0) {
+    $_GET['load'] = $_GET['id'];
+} else {
+    $theclass->itemItemFk = 'NULL';
+}
+
+//echo ('asociado de -> '.$_GET['load'].'<br>');
+//echo ('tipo -> '.$theclass->itemTypeFk.'<br>');
+//echo ('asociado de -> '.$_GET['load'].'<br>');
+$langs = new Literal_langs();
+$literals = new Literal_groups();
+$items = new Item_items();
+
+
+
+$all_langs = $langs->getAll('langId,langName,langIso');
+
+$showfield = $theclass->showField;
+
+if (in_array($showfield, $theclass->literalFields)) {
+    $h2 = translate($theclass->$showfield);
+} else {
+    $h2 = $theclass->$showfield;
+}
+
+$theclass->describeTable();
+
+$thefields = '';
+$_SESSION['admin']['langcount'] = 0;
+foreach ((array) $theclass->fields as $field) {
+    if ($theclass->editable == FALSE) {
+        $theclass->uneditableFields[] = $field['Field'];
+    }
+    if (in_array($field['Field'], $theclass->literalFields)) {
+
+        $tab = '';
+        $tabcontent = '';
+
+        foreach ((array) $all_langs as $all_langs_values) {
+
+            $tab .= ' <li';
+            if ($_SESSION['lang'] == $all_langs_values['langIso']) {
+                $tab .= ' class="active"';
+            }
+            $tab .= '><a href="#' . $all_langs_values['langName'] . $_SESSION['admin']['langcount'] . '" data-toggle="tab">' . $all_langs_values['langName'] . '</a></li>';
+
+
+            $tabcontent .= '<div class="tab-pane';
+            if ($_SESSION['lang'] == $all_langs_values['langIso']) {
+                $tabcontent .= ' active';
+            }
+            $tabcontent .= '" id="' . $all_langs_values['langName'] . $_SESSION['admin']['langcount'] . '">';
+            $tabcontent .= getInputBox($theclass, $field, $literals->getLiteral($theclass->$field['Field'], $all_langs_values['langIso']), $field['Field'] . '[' . $all_langs_values['langId'] . ']', $field['Field'] . '_' . $all_langs_values['langId'], false);
+            $tabcontent .= '</div>';
+        }
+        $_SESSION['admin']['langcount']++;
+        $thefields .= '<div class="control-group';
+        if (in_array($field['Field'], $theclass->hiddenFields)) {
+            $thefields .= ' hidden';
+        }
+        if ($_GET['id'] > 0) {
+            $literalId = $theclass->$field['Field'];
+        } else {
+            $literalId = '';
+        }
+        $thefields .= '">
+                        <label class="control-label">' . lang($field['Field']) . '</label>
+                        <div class="controls">
+                            <ul id="tabs" class="nav nav-tabs" data-tabs="tabs">
+                                ' . $tab . '
+                            </ul>
+                            <div id="my-tab-content" class="tab-content">
+                                ' . $tabcontent . '
+                            </div>
+                            <input type="hidden" name="' . $field['Field'] . '[itemLiteralId]" value="' . $literalId . '">
+                       </div>
+                    </div>';
+    } else {
+        $thefields .= getInputBox($theclass, $field, $theclass->$field['Field'], false, false);
+    }
+}
+
+$row = 0;
+
+foreach ((array) $theclass->externalForm as $form) {
+    $newclass = new $form();
+    $newclass->describeTable();
+    $referenceField = array_search($_GET['t'], $newclass->references);
+    if ($referenceField) {
+        $externalForm = TRUE;
+        $extraForm .= '<div class="row-fluid">
+        <div class="box span12">
+            <div class="box-header" data-original-title>
+                <h2><i class="halflings-icon edit"></i><span class="break"></span>' . lang($form) . '</h2>
+                <div class="box-icon">
+                        <a class="btn-minimize" href="#"><i class="halflings-icon chevron-up icon-chevron-up"></i></a>
+                </div>
+            </div>
+            <div class="box-content">';
+        if ($form == 'item_sections') {
+            $sections = new Section_sections();
+            $showIn = $newclass->asd($_GET['id']);
+            $extraForm .= $newclass->getShopSectionNestedCheckboxes();
+        } elseif ($form == 'section_form_values') {
+            $sectionForm = $newclass->getSectionForm($referenceField, $_GET['id']);
+            $extraForm .= '<div class="control-group" id="insertAferThis">
+                 <label class="control-label" for="valueFormIdFk">form</label>
+                    <div class="controls">';
+            $extraForm .= $newclass->getFormSelect('section_form_values[valueFormIdFk]', $sectionForm['valueFormIdFk'], 'getFormFields(\'' . $_GET['id'] . '\',\'' . $form . '\',\'formfields\',this.value,\'' . $_SESSION['admin']['langcount'] . '\')', 'valueFormIdFk');
+            $extraForm .= '</div>
+                        </div>';
+
+            if ($sectionForm) {
+                $fields = $newclass->getFormFields($sectionForm['valueFormIdFk']);
+                $counter = 0;
+                $extraForm .= '<div id="' . $form . '_formfields">';
+                foreach ((array) $fields as $field) {
+                    $tab = '';
+                    $tabcontent = '';
+                    $formValues = $newclass->getFormValues($_GET['id'], $sectionForm['valueFormIdFk'], $field['fieldId']);
+                    foreach ((array) $all_langs as $all_langs_values) {
+                        $tab .= ' <li';
+                        if ($_SESSION['lang'] == $all_langs_values['langIso']) {
+                            $tab .= ' class="active"';
+                        }
+                        $tab .= '><a href="#' . $all_langs_values['langName'] . $_SESSION['admin']['langcount'] . '" data-toggle="tab">' . $all_langs_values['langName'] . '</a></li>';
+
+
+                        $tabcontent .= '<div class="tab-pane';
+                        if ($_SESSION['lang'] == $all_langs_values['langIso']) {
+                            $tabcontent .= ' active';
+                        }
+                        $tabcontent .= '" id="' . $all_langs_values['langName'] . $_SESSION['admin']['langcount'] . '">';
+                        $tabcontent .= '<div class="control-group">
+                        <div class="controls" style="margin-left:0px;">';
+                        $tabcontent .= '<input class="input-xlarge" id="valueLiteralIdFk_' . $all_langs_values['langId'] . '_' . $counter . '" name="section_form_values[' . $counter . '][valueLiteralFk][' . $all_langs_values['langId'] . ']" type="text" value="' . $literals->getLiteral($formValues['valueLiteralFk'], $all_langs_values['langIso']) . '">';
+                        $tabcontent .= '</div>
+                            </div>';
+                        $tabcontent .= '</div>';
+                    }
+                    $_SESSION['admin']['langcount']++;
+                    $formValueId = $formValues['valueId'];
+                    if (!$formValueId) {
+                        $formValueId = -1;
+                    }
+                    $extraForm .= '<div class="control-group">
+                                    <label class="control-label">' . translate($field['fieldNameFk']) . '</label>
+                                    <div class="controls">
+                                        <ul id="tabs" class="nav nav-tabs" data-tabs="tabs">
+                                            ' . $tab . '
+                                        </ul>
+                                        <div id="my-tab-content" class="tab-content">
+                                            ' . $tabcontent . '
+                                        </div>
+                                        <input type="hidden" name="section_form_values[' . $counter . '][valueLiteralFk][itemLiteralId]" value="' . $formValues['valueLiteralFk'] . '">
+                                        <input type="hidden" class="input-xlarge" id="valueId_' . $counter . '" name="section_form_values[' . $counter . '][valueId]" value="' . $formValueId . '">
+                                        <input type="hidden" class="input-xlarge" id="valueSectionIdFk_' . $counter . '" name="section_form_values[' . $counter . '][valueSectionIdFk]" value="' . $_GET['id'] . '">
+                                        <input type="hidden" class="input-xlarge" id="valueFormIdFk_' . $counter . '" name="section_form_values[' . $counter . '][valueFormIdFk]" value="' . $sectionForm['valueFormIdFk'] . '">
+                                        <input type="hidden" class="input-xlarge" id="valueFieldIdFk_' . $counter . '" name="section_form_values[' . $counter . '][valueFieldIdFk]" value="' . $field['fieldId'] . '">
+
+                                    </div>
+                                </div>';
+                    $counter++;
+                }
+                $extraForm .= '</div>';
+            }
+        } elseif ($form == 'item_attribute_values') {
+            if ($_GET['load'] && $_GET['id'] < 0) {
+                $load = $_GET['load'];
+            } else {
+                $load = $_GET['id'];
+            }
+            $attributes_by_type = $newclass->getAttributesByType($theclass->itemTypeFk);
+            $counter = 0;
+            foreach ((array) $attributes_by_type as $attribute) {
+                $defaultValues = $newclass->getAttributeDefaultValuesArray($attribute['attributeId']);
+                $attributeValue = $newclass->getAttributeValue($load, $attribute['attributeId']);
+                if ($attributeValue['valueId'] > 0 && $_GET['id'] > 0) {
+                    $attributeValueId = $attributeValue['valueId'];
+                } else {
+                    $attributeValueId = -1;
+                }
+                $extraForm .= '<div class="control-group">
+                                    <label class="control-label">' . translate($attribute['attributeName']) . '</label>
+                                        <div class="controls">
+                                            <input type="hidden" class="input-xlarge" id="valueId_' . $counter . '" name="' . $form . '[' . $counter . '][valueId]" value="' . $attributeValueId . '">
+                                            <input type="hidden" class="input-xlarge" id="valueItemFk_' . $counter . '" name="' . $form . '[' . $counter . '][valueItemFk]" value="' . $_GET['id'] . '">
+                                            <input type="hidden" class="input-xlarge" id="valueAttributeFk_' . $counter . '" name="' . $form . '[' . $counter . '][valueAttributeFk]" value="' . $attribute['attributeId'] . '">';
+
+                if ($defaultValues) {
+                    $extraForm .= getSelectFromRecordSet($defaultValues, $form . '[' . $counter . '][valueValue]', true, $attributeValue['valueValue'], false, false, 'valueValue_' . $counter);
+                } elseif ($attribute['attributeLiteral'] == 1) {
+                    $tab = '';
+                    $tabcontent = '';
+
+                    foreach ((array) $all_langs as $all_langs_values) {
+                        $tab .= ' <li';
+                        if ($_SESSION['lang'] == $all_langs_values['langIso']) {
+                            $tab .= ' class="active"';
+                        }
+                        $tab .= '><a href="#' . $all_langs_values['langName'] . $_SESSION['admin']['langcount'] . '" data-toggle="tab">' . $all_langs_values['langName'] . '</a></li>';
+
+
+                        $tabcontent .= '<div class="tab-pane';
+                        if ($_SESSION['lang'] == $all_langs_values['langIso']) {
+                            $tabcontent .= ' active';
+                        }
+                        $tabcontent .= '" id="' . $all_langs_values['langName'] . $_SESSION['admin']['langcount'] . '">';
+                        $tabcontent .= '<div class="control-group">
+                        <div class="controls" style="margin-left:0px;">';
+                        $tabcontent .= '<input class="input-xlarge" id="valueLiteralId_' . $all_langs_values['langId'] . '_' . $counter . '" name="' . $form . '[' . $counter . '][valueLiteral][' . $all_langs_values['langId'] . ']" type="text" value="' . $literals->getLiteral($attributeValue['valueLiteral'], $all_langs_values['langIso']) . '">';
+                        $tabcontent .= '</div>
+                            </div>';
+                        $tabcontent .= '</div>';
+                    }
+                    $_SESSION['admin']['langcount']++;
+                    $formValueId = $formValues['valueId'];
+                    if (!$formValueId) {
+                        $formValueId = -1;
+                    }
+                    if ($_GET['id'] < 0) {
+                        $attLiteralId = '';
+                    } else {
+                        $attLiteralId = $attributeValue['valueLiteral'];
+                    }
+                    $extraForm .= '<ul id="tabs" class="nav nav-tabs" data-tabs="tabs">
+                                            ' . $tab . '
+                                        </ul>
+                                        <div id="my-tab-content" class="tab-content">
+                                            ' . $tabcontent . '
+                                        </div>
+                                        <input type="hidden" name="' . $form . '[' . $counter . '][valueLiteral][itemLiteralId]" value="' . $attLiteralId . '">';
+                    $counter++;
+                } else {
+                    if ($attribute['attributeRequired']) {
+                        $functions = 'validateContent(this);';
+                        if ($attribute['attributeValidateFunction']) {
+                            $functions .= $attribute['attributeValidateFunction'] . '(this.value);';
+                        }
+                    } else {
+                        if ($attribute['attributeValidateFunction']) {
+                            $functions = $attribute['attributeValidateFunction'] . '(this.value);';
+                        } else {
+                            $functions = '';
+                        }
+                    }
+                    $extraForm .= '<input onblur="' . $functions . '" type="text" name="' . $form . '[' . $counter . '][valueValue]" value="' . $attributeValue['valueValue'] . '">';
+                }
+                $extraForm .= '
+                                </div>
+                            </div>';
+                $counter++;
+            }
+            $attributes_by_set = $newclass->getAttributesBySet($theclass->itemAttributeSetFk);
+            foreach ((array) $attributes_by_set as $attribute) {
+                $defaultValues = $newclass->getAttributeDefaultValuesArray($attribute['attributeId']);
+                $attributeValue = $newclass->getAttributeValue($load, $attribute['attributeId']);
+                if ($attributeValue['valueId'] > 0 && $_GET['id'] > 0) {
+                    $attributeValueId = $attributeValue['valueId'];
+                } else {
+                    $attributeValueId = -1;
+                }
+                $extraForm .= '<div class="control-group">
+                                    <label class="control-label">' . translate($attribute['attributeName']) . '</label>
+                                        <div class="controls">
+                                            <input type="hidden" class="input-xlarge" id="valueId_' . $counter . '" name="' . $form . '[' . $counter . '][valueId]" value="' . $attributeValueId . '">
+                                            <input type="hidden" class="input-xlarge" id="valueItemFk_' . $counter . '" name="' . $form . '[' . $counter . '][valueItemFk]" value="' . $_GET['id'] . '">
+                                            <input type="hidden" class="input-xlarge" id="valueAttributeFk_' . $counter . '" name="' . $form . '[' . $counter . '][valueAttributeFk]" value="' . $attribute['attributeId'] . '">';
+
+                if ($defaultValues) {
+                    $extraForm .= getSelectFromRecordSet($defaultValues, $form . '[' . $counter . '][valueValue]', true, $attributeValue['valueValue'], false, false, 'valueValue_' . $counter);
+                } elseif ($attribute['attributeLiteral'] == 1) {
+                    $tab = '';
+                    $tabcontent = '';
+
+                    foreach ((array) $all_langs as $all_langs_values) {
+                        $tab .= ' <li';
+                        if ($_SESSION['lang'] == $all_langs_values['langIso']) {
+                            $tab .= ' class="active"';
+                        }
+                        $tab .= '><a href="#' . $all_langs_values['langName'] . $_SESSION['admin']['langcount'] . '" data-toggle="tab">' . $all_langs_values['langName'] . '</a></li>';
+
+
+                        $tabcontent .= '<div class="tab-pane';
+                        if ($_SESSION['lang'] == $all_langs_values['langIso']) {
+                            $tabcontent .= ' active';
+                        }
+                        $tabcontent .= '" id="' . $all_langs_values['langName'] . $_SESSION['admin']['langcount'] . '">';
+                        $tabcontent .= '<div class="control-group">
+                        <div class="controls" style="margin-left:0px;">';
+                        $tabcontent .= '<input class="input-xlarge" id="valueLiteralId_' . $all_langs_values['langId'] . '_' . $counter . '" name="' . $form . '[' . $counter . '][valueLiteral][' . $all_langs_values['langId'] . ']" type="text" value="' . $literals->getLiteral($attributeValue['valueLiteral'], $all_langs_values['langIso']) . '">';
+                        $tabcontent .= '</div>
+                            </div>';
+                        $tabcontent .= '</div>';
+                    }
+                    $_SESSION['admin']['langcount']++;
+                    $formValueId = $formValues['valueId'];
+                    if (!$formValueId) {
+                        $formValueId = -1;
+                    }
+                    if ($_GET['id'] < 0) {
+                        $attLiteralId = '';
+                    } else {
+                        $attLiteralId = $attributeValue['valueLiteral'];
+                    }
+                    $extraForm .= '<ul id="tabs" class="nav nav-tabs" data-tabs="tabs">
+                                            ' . $tab . '
+                                        </ul>
+                                        <div id="my-tab-content" class="tab-content">
+                                            ' . $tabcontent . '
+                                        </div>
+                                        <input type="hidden" name="' . $form . '[' . $counter . '][valueLiteral][itemLiteralId]" value="' . $attLiteralId . '">';
+                    $counter++;
+                } else {
+                    if ($attribute['attributeRequired']) {
+                        $functions = 'validateContent(this);';
+                        if ($attribute['attributeValidateFunction']) {
+                            $functions .= $attribute['attributeValidateFunction'] . '(this.value);';
+                        }
+                    } else {
+                        if ($attribute['attributeValidateFunction']) {
+                            $functions = $attribute['attributeValidateFunction'] . '(this.value);';
+                        } else {
+                            $functions = '';
+                        }
+                    }
+                    $extraForm .= '<input onblur="' . $functions . '" type="text" name="' . $form . '[' . $counter . '][valueValue]" value="' . $attributeValue['valueValue'] . '">';
+                }
+                $extraForm .= '
+                                </div>
+                            </div>';
+                $counter++;
+            }
+        } else {
+            $c = 0;
+            foreach ((array) $newclass->getAll('*', $referenceField . ' = ' . $_GET['id']) as $value) {
+                $subelementid = $value[$newclass->fieldid];
+                $extraForm .= '<div id="' . $form . '_' . $c . '">';
+                if ($c > 0) {
+                    $extraForm .= '<hr>';
+                }
+                if ($newclass->erasable) {
+                    $extraForm .= '<a href="#" id="cancel_' . $row . '" style="float:right;display:none;margin-left:5px;" onclick="hideButtons(\'' . $row . '\')" class="btn btn-danger hidden-button" title="Cancelar"><i class="fa-icon-remove"></i></a>';
+                    $extraForm .= '<a href="#" id="confirm_' . $row . '" style="float:right;display:none;margin-left:5px;" onclick="deleteInnerItem();" class="btn btn-success hidden-button" title="Aceptar"><i class="fa-icon-ok"></i></a>';
+                    $extraForm .= '<a href="#" id="delete_' . $row . '" style="float:right" onclick="deleteInnerRow(\'' . $value[$newclass->fieldid] . '\',\'' . $form . '\',\'' . $row . '\',\'' . $c . '\')" class="btn btn-danger erase-button" title="Eliminar"><i class="fa-icon-trash"></i></a>';
+                }
+                foreach ((array) $newclass->fields as $field) {
+                    if ($newclass->editable == FALSE) {
+                        $newclass->uneditableFields[] = $field['Field'];
+                    }
+                    if (in_array($field['Field'], $newclass->literalFields)) {
+                        $tab = '';
+                        $tabcontent = '';
+                        foreach ((array) $all_langs as $all_langs_values) {
+                            $tab .= ' <li';
+                            if ($_SESSION['lang'] == $all_langs_values['langIso']) {
+                                $tab .= ' class="active"';
+                            }
+                            $tab .= '><a href="#' . $all_langs_values['langName'] . $_SESSION['admin']['langcount'] . '" data-toggle="tab">' . $all_langs_values['langName'] . '</a></li>';
+
+
+                            $tabcontent .= '<div class="tab-pane';
+                            if ($_SESSION['lang'] == $all_langs_values['langIso']) {
+                                $tabcontent .= ' active';
+                            }
+                            $tabcontent .= '" id="' . $all_langs_values['langName'] . $_SESSION['admin']['langcount'] . '">';
+                            $tabcontent .= getInputBox($newclass, $field, $literals->getLiteral($value[$field['Field']], $all_langs_values['langIso']), $form . '[' . $c . '][' . $field['Field'] . '][' . $all_langs_values['langId'] . ']', $field['Field'] . '_' . $all_langs_values['langId'] . '_' . $c, false);
+                            $tabcontent .= '</div>';
+                        }
+                        $_SESSION['admin']['langcount']++;
+                        $extraForm .= '<div class="control-group">
+                        <label class="control-label">' . lang($field['Field']) . '</label>
+                        <div class="controls">
+                            <ul id="tabs" class="nav nav-tabs" data-tabs="tabs">
+                                ' . $tab . '
+                            </ul>
+                            <div id="my-tab-content" class="tab-content">
+                                ' . $tabcontent . '
+                            </div>
+
+                            <input type="hidden" name="' . $form . '[' . $c . '][' . $field['Field'] . '][itemLiteralId]" value="' . $value[$field['Field']] . '">
+                       </div>
+                    </div>';
+                    } else {
+                        $extraForm .= getInputBox($newclass, $field, $value[$field['Field']], $form . '[' . $c . '][' . $field['Field'] . ']', $field['Field'] . '_' . $c);
+                    }
+                }
+                $c++;
+                $row++;
+                $extraForm .= '</div>';
+            }
+        }
+        if ($newclass->addable && $form != 'item_attribute_values') {
+            $extraForm .= '<div id="insert_' . $form . '" class="inner-form-actions">
+                            <button type="button" onclick="createInnerItem(\'' . $_GET['t'] . '\',\'' . $_GET['id'] . '\',\'' . $form . '\',\'' . $c . '\',\'' . $_SESSION['admin']['langcount'] . '\',\'' . $row . '\')" class="btn btn-primary">' . lang('add') . '</button>
+                       </div>';
+        }
+        $extraForm .= '</div>
+                    </div><!--/span-->
+                </div><!--/row-->';
+    }
+}
+if ($theclass->itemTypeFk != 4) {
+    foreach ((array) $theclass->picklists as $relations_table => $selectable_items) {
+        if ($_GET['load'] && $_GET['id'] < 0) {
+            $picklistParentId = $_GET['load'];
+        } else {
+            $picklistParentId = $_GET['id'];
+        }
+        $picklist .= $theclass->getPickList($picklistParentId, $relations_table, $selectable_items);
+    }
+}
+
+if ($theclass->itemTypeFk == 3 || $theclass->itemTypeFk == 4) {
+    $attribute_values_class = new Item_attribute_values();
+    $th = '<th>' . lang('itemNameFk') . '</th>';
+    $th .= '<th>' . lang('itemPrice') . '</th>';
+    $attributes_by_set = new Item_attribute_by_set();
+    $attributes = $attributes_by_set->getAll('attributeId, attributeName,attributeLiteral', 'setIdFk = ' . $theclass->itemAttributeSetFk, 'attributeOrder', true, '5');
+    foreach ($attributes as $attribute) {
+        $th .= '<th>' . translate($attribute['attributeName']) . '</th>';
+    }
+    $th .='<th style="min-width: 125px">' . lang('options') . '</th>';
+    $rs = $theclass->getAll('itemId,itemNameFk,itemPrice,itemItemFk', 'itemItemFk = ' . $_GET['load'] . ' AND itemId != ' . $_GET['id']);
+    $td = '';
+
+    foreach ((array) $rs as $r) {
+
+        $td .= '<tr>
+                <td>';
+        if ($r['itemId'] == $r['itemItemFk']) {
+            $td .= '<b>' . translate($r['itemNameFk']) . '</b';
+        } else {
+            $td .= translate($r['itemNameFk']);
+        }
+        $td .= '</td>
+                <td>' . $r['itemPrice'] . '</td>';
+        foreach ($attributes as $attribute) {
+            $defaultValues = $attribute_values_class->getAttributeDefaultValuesArray($attribute['attributeId']);
+            $attValues = $attribute_values_class->getAttributeValue($r['itemId'], $attribute['attributeId']);
+            if ($attribute['attributeLiteral'] == 1) {
+                $td .= '<td>' . translate($attValues['valueLiteral']) . '</td>';
+            } else {
+                if ($defaultValues) {
+                    foreach ($defaultValues as $defaultValue) {
+                        if ($defaultValue['defaultId'] == $attValues['valueValue']) {
+                            $defaultValue = $defaultValue['defaultValueLiteral'];
+                            break;
+                        }
+                    }
+                    $td .= '<td>' . translate($defaultValue) . '</td>';
+                } else {
+                    $td .= '<td>' . $attValues['valueValue'] . '</td>';
+                }
+            }
+        }
+        $td .= '<td class="center">
+                <a title="Editar" class="btn btn-info" href="' . BASE_URL . 'admin/form.php?s=' . $_GET['s'] . '&t=' . $_GET['t'] . '&id=' . $r['itemId'] . '">
+                    <i class="fa-icon-edit"></i>                                            
+                </a> <a title="Eliminar" class="btn btn-danger" onclick="deleteRow(' . EC($r['itemId']) . ',' . EC($_GET['t']) . ')" href="#">
+                    <i class="fa-icon-trash"></i> 
+                </a></td>
+                </tr>';
+    }
+    $otherItems .= '<div class="row-fluid">
+        <div class="box span12">
+            <div class="box-header" data-original-title>
+                <h2><i class="halflings-icon edit"></i><span class="break"></span>' . lang('articulos_asociados') . '</h2>
+                <div class="box-icon">
+                        <a class="btn-minimize" href="#"><i class="halflings-icon chevron-up icon-chevron-up"></i></a>
+                </div>
+            </div>
+            <div class="box-content">
+            <table class="table">
+                <thead>
+                    <tr>' . $th . '</tr>
+                </thead>   
+                <tbody>' . $td . '</tbody>
+            </table>';
+    $otherItems .= '</div>
+                    </div><!--/span-->
+                </div><!--/row-->';
+    if (count($rs) == 0) {
+        $otherItems = '';
+    }
+}
+?>
+
+<!DOCTYPE html>
+<html lang="<?= $_SESSION['lang'] ?>">
+    <head>
+
+        <!-- start: Meta -->
+        <meta charset="utf-8">
+        <title><?= PROJECT_NAME ?> ADMIN</title>
+        <!-- end: Meta -->
+
+        <!-- start: Mobile Specific -->
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <!-- end: Mobile Specific -->
+
+        <?= headIncludes($headIncludes) ?>
+
+        <!--start: Favicon-->
+        <link rel="shortcut icon" href="img/favicon.ico">
+        <!--end: Favicon-->
+
+    </head>
+
+    <body>
+        <?= getHeader() ?>
+        <div class="container-fluid">
+            <div class="row-fluid">
+                <?= getMainMenu() ?>
+                <noscript>
+                <div class="alert alert-block span11">
+                    <h4 class="alert-heading">Warning!</h4>
+                    <p>You need to have <a href="http://en.wikipedia.org/wiki/JavaScript" target="_blank">JavaScript</a> enabled to use this site.</p>
+                </div>
+                </noscript>
+
+                <!-- start: Content -->
+                <div id="content" class="span11">
+
+                    <div class="row-fluid">
+                        <?= getSubmenuBox($submenu[$_GET['s']]) ?>
+                        <div class="span9" onTablet="span7" onDesktop="span9">
+                            <div class="span12">
+                                <h1><?= lang('editing') ?> <?= lang($_GET['t']) ?></h1>
+                                <h2><?= $h2 ?></h2>
+                            </div>
+                            <div class="span12">
+                            </div>
+                            <div class="row-fluid ">
+                                <div class="span12">
+                                    <ul class="breadcrumb">
+                                        <li><a href="<?= BASE_URL ?>admin/list.php?s=<?= $_GET['s'] ?>&t=<?= $_GET['t'] ?>"><?= lang($_GET['t']) ?></a> <span class="divider">/</span></li>
+                                        <li class="active"><?= lang('editing') ?></li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="row-fluid ">
+                                <form class="form-horizontal" id="theform" enctype="multipart/form-data">
+                                    <div class="row-fluid">
+                                        <div class="box span12">
+                                            <div class="box-header" data-original-title>
+                                                <h2><i class="halflings-icon edit"></i><span class="break"></span><?= lang('editing') ?> <?= lang($_GET['t']) ?></h2>
+                                                <div class="box-icon">
+                                                    <a class="btn-minimize" href="#"><i class="halflings-icon chevron-up icon-chevron-up"></i></a>
+                                                </div>
+                                            </div>
+                                            <div class="box-content">
+                                                <fieldset>
+                                                    <?= $thefields ?>
+                                                    <?= $picklist ?>
+                                                    <?
+                                                    if ($theclass->table == 'item_items') {
+                                                        echo '<input type="hidden" name="itemTypeFk" id="itemTypeFk" value="' . $theclass->itemTypeFk . '"/>';
+                                                        echo '<input type="hidden" name="itemAttributeSetFk" id="itemAttributeSetFk" value="' . $theclass->itemAttributeSetFk . '"/>';
+                                                    }
+                                                    ?>
+                                                    <input type="hidden" name="t" id="t" value="<?= $_GET['t'] ?>"/>
+                                                    <input type="hidden" name="itemid" id="itemid" value="<?= $_GET['id'] ?>"/>
+                                                </fieldset>
+                                            </div>
+                                        </div><!--/span-->
+                                    </div><!--/row-->
+                                    <?= $extraForm ?>
+                                    <?= $otherItems ?>
+                                    <?= $imageGallery ?>
+                                    <div class="buttons">
+                                        <button type="button" id="save" onclick="saveForm('<?= BASE_URL . 'admin/list.php?s=' . $_GET['s'] . '&t=' . $_GET['t'] ?>')" class="btn btn-primary"><?= lang('save') ?></button>
+                                        <?
+                                        if ($_GET['t'] == 'section_sections') {
+                                            $save_other_url = BASE_URL . 'admin/new_section.php?s=' . $_GET['s'] . '&t=' . $_GET['t'] . '&id=-1';
+                                        } elseif ($_GET['t'] == 'item_items') {
+                                            if ($theclass->itemTypeFk == 3) {
+                                                echo '<button type="button" onclick="saveForm(\'' . BASE_URL . 'admin/form.php?s=items&t=item_items&id=-1&load=' . $_GET['load'] . '\')" class="btn btn-primary">' . lang('guardar_asociado') . '</button> ';
+                                            } elseif ($theclass->itemTypeFk == 4) {
+                                                echo '<button type="button" onclick="saveForm(\'' . BASE_URL . 'admin/form.php?s=items&t=item_items&id=-1&load=' . $_GET['load'] . '\')" class="btn btn-primary">' . lang('guardar_otro_asociado') . '</button> ';
+                                            }
+                                            $save_other_url = BASE_URL . 'admin/new_item.php?s=' . $_GET['s'] . '&t=' . $_GET['t'] . '&id=-1';
+                                        } else {
+                                            $save_other_url = BASE_URL . 'admin/form.php?s=' . $_GET['s'] . '&t=' . $_GET['t'] . '&id=-1';
+                                        }
+                                        if ($_SERVER['HTTP_REFERER'] == BASE_URL . 'admin/new_section.php?s=sections&t=section_sections&id=-1') {
+                                            $cancel_onclick = 'alertCancelItem(\'' . $_GET['id'] . '\', \'' . $_GET['t'] . '\',\'' . BASE_URL . 'admin/list.php?s=' . $_GET['s'] . '&t=' . $_GET['t'] . '\')';
+                                        } elseif ($_SERVER['HTTP_REFERER'] == BASE_URL . 'admin/new_item.php?s=items&t=item_items&id=-1') {
+                                            $cancel_onclick = 'alertCancelItem(\'' . $_GET['id'] . '\', \'' . $_GET['t'] . '\',\'' . BASE_URL . 'admin/list.php?s=' . $_GET['s'] . '&t=' . $_GET['t'] . '\')';
+                                        } else {
+                                            $cancel_onclick = 'location.href=\'' . BASE_URL . 'admin/list.php?s=' . $_GET['s'] . '&t=' . $_GET['t'] . '\'';
+                                        }
+
+                                        if ($theclass->addable) {
+                                            echo '<button id="save-other" type="button" onclick="saveForm(\'' . $save_other_url . '\')" class="btn btn-primary">' . lang('save_other') . '</button>';
+                                        }
+                                        ?>
+                                        <button id="cancel" type="button" onclick="<?= $cancel_onclick ?>" class="btn"><?= lang('cancel') ?></button>
+                                    </div>
+                                </form>
+                            </div>
+                            <!-- end: Content -->
+                        </div><!--/span9-->
+                    </div><!--/fluid-row-->
+
+                </div><!--/#content-->
+                <div class="modal hide fade" id="myModal">
+                    <div class="modal-header">
+                        <button type="button" class="close" data-dismiss="modal">×</button>
+                        <h3><?= lang('erase') ?></h3>
+                    </div>
+                    <div class="modal-body">
+                        <p><?= lang('confirm_delete') ?></p>
+                    </div> 
+                    <div class="modal-footer">
+                        <input type="hidden" id="table" value="<?= $_GET['t'] ?>"/>
+                        <a href="#" class="btn" data-dismiss="modal"><?= lang('cancel') ?></a>
+                        <a onclick="deleteItem();" class="btn btn-primary"><?= lang('erase') ?></a>
+                    </div>
+                </div>
+                <div class="modal hide fade" id="itemModal">
+                    <div class="modal-header">
+                        <button type="button" class="close" data-dismiss="modal">×</button>
+                        <h3><?= lang('erase') ?></h3>
+                    </div>
+                    <div class="modal-body">
+                        <p><?= lang('cancel_without_save') ?></p>
+                    </div> 
+                    <div class="modal-footer">
+                        <button type="button" class="btn" data-dismiss="modal"><?= lang('cancel') ?></button>
+                        <button type="button" onclick="deleteLastAdded();" class="btn btn-primary"><?= lang('erase') ?></button>
+                    </div>
+                </div>
+                <input type="hidden" id="hrefTo" value="0"/>
+                <input type="hidden" id="deltable" value=""/>
+                <input type="hidden" id="delID" value="0"/>
+                <input type="hidden" id="delRow" value="0"/>
+                <input type="hidden" id="count" value="0"/>
+                <div class="clearfix"></div>
+                <?= getFooter() ?>
+            </div><!--/.fluid-container-->
+
+            <!-- start: JavaScript-->
+
+            <?= footerIncludes($footerIncludes) ?>
+            <script>
+                $('.datepicker').datepicker({
+                    dateFormat: 'yy-mm-dd'
+                });
+            </script>
+            <?
+            if ($_SERVER['HTTP_REFERER'] == BASE_URL . 'admin/new_section.php?s=sections&t=section_sections&id=-1' || $_SERVER['HTTP_REFERER'] == BASE_URL . 'admin/new_item.php?s=items&t=item_items&id=-1') {
+                echo "<script>
+                        $( 'a' ).click(function(e) {
+                            var n = this.href.indexOf('#'); 
+                            if(n == -1){
+                                var  accept = confirm('" . lang('cancel_without_save') . "');
+                                if(accept == false){
+                                    e.preventDefault();
+                                } else {
+                                    $('#delID').val(" . $_GET['id'] . ");
+                                    $('#table').val('" . $_GET['t'] . "');
+                                    $('#hrefTo').val(this.href);
+                                    deleteLastAdded();
+                                }
+                            }
+                        });      
+                    </script>";
+            }
+            ?>
+
+            <!-- end: JavaScript-->       
+
+    </body>
+</html>

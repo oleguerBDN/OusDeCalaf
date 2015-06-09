@@ -1,0 +1,15 @@
+.span12 .alert{ 
+    height: 18px;
+    margin-left: auto;
+    margin-right: auto;
+    margin-top: 20px;
+    width: 450px;
+}
+.span12 .alert strong{
+    float:left;
+    font-weight: bold;
+    padding-right: 5px;
+}
+.span12 .alert p{
+    float:left;
+}

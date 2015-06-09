@@ -1,0 +1,59 @@
+K 25
+svn:wc:ra_dav:version-url
+V 68
+/svn/new_montseinteriors/!svn/ver/219/new_montseinteriors/admin/ajax
+END
+loginAdmin.php
+K 25
+svn:wc:ra_dav:version-url
+V 81
+/svn/new_montseinteriors/!svn/ver/2/new_montseinteriors/admin/ajax/loginAdmin.php
+END
+deleteFile.php
+K 25
+svn:wc:ra_dav:version-url
+V 81
+/svn/new_montseinteriors/!svn/ver/2/new_montseinteriors/admin/ajax/deleteFile.php
+END
+deleteImg.php
+K 25
+svn:wc:ra_dav:version-url
+V 81
+/svn/new_montseinteriors/!svn/ver/37/new_montseinteriors/admin/ajax/deleteImg.php
+END
+createInnerItem.php
+K 25
+svn:wc:ra_dav:version-url
+V 88
+/svn/new_montseinteriors/!svn/ver/151/new_montseinteriors/admin/ajax/createInnerItem.php
+END
+deleteItem.php
+K 25
+svn:wc:ra_dav:version-url
+V 81
+/svn/new_montseinteriors/!svn/ver/2/new_montseinteriors/admin/ajax/deleteItem.php
+END
+insertInnerItem.php
+K 25
+svn:wc:ra_dav:version-url
+V 86
+/svn/new_montseinteriors/!svn/ver/2/new_montseinteriors/admin/ajax/insertInnerItem.php
+END
+insertInnerForm.php
+K 25
+svn:wc:ra_dav:version-url
+V 86
+/svn/new_montseinteriors/!svn/ver/2/new_montseinteriors/admin/ajax/insertInnerForm.php
+END
+saveForm.php
+K 25
+svn:wc:ra_dav:version-url
+V 81
+/svn/new_montseinteriors/!svn/ver/219/new_montseinteriors/admin/ajax/saveForm.php
+END
+showAttributes.php
+K 25
+svn:wc:ra_dav:version-url
+V 85
+/svn/new_montseinteriors/!svn/ver/2/new_montseinteriors/admin/ajax/showAttributes.php
+END
